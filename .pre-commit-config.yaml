@@ -1,0 +1,20 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Ruff lint
+        entry: .conda/python.exe -m ruff check
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: Ruff format check
+        entry: .conda/python.exe -m ruff format --check
+        language: system
+        types: [python]
+      - id: pytest
+        name: Pytest
+        entry: .conda/python.exe -m pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
