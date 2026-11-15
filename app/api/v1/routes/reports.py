@@ -52,35 +52,40 @@ def validate_range(start_date: date, end_date: date, settings: Settings) -> None
     dependencies=[Depends(require_roles(*REPORT_ROLES))],
 )
 async def get_daily_report(
-    report_date: date = Query(alias="date"),
-    session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),
-    settings: Settings = Depends(get_settings),
-) -> DailyReport:
+    report_date: date = Query(alias="date"),  # 报告日期，通过查询参数date获取
+    session_factory: async_sessionmaker[AsyncSession] = Depends(get_session_factory),  # 异步会话工厂，依赖注入获取
+    settings: Settings = Depends(get_settings),  # 设置对象，依赖注入获取
+) -> DailyReport:  # 返回类型为DailyReport
+    # 加载汇总数据，日期范围为前一日到报告日期
     rollups = await load_rollups(
         session_factory,
-        report_date - timedelta(days=1),
-        report_date,
-        settings.normalized_paid_statuses,
+        report_date - timedelta(days=1),  # 开始日期：报告日期的前一天
+        report_date,  # 结束日期：报告日期
+        settings.normalized_paid_statuses,  # 已支付状态列表
     )
-    current = metrics_for(rollups, report_date)
-    previous = metrics_for(rollups, report_date - timedelta(days=1))
+
+    # 获取报告日期和前一日的指标数据
+    current = metrics_for(rollups, report_date)  # 当前日期的指标
+    previous = metrics_for(rollups, report_date - timedelta(days=1))  # 前一日的指标
+    # 创建指标比较字典，存储当前值、前值、绝对变化和百分比变化
     comparisons: dict[str, MetricComparison] = {}
-    for metric in ("total_orders", "paid_orders", "paid_amount"):
-        current_value = current[metric]
-        previous_value = previous[metric]
-        comparisons[metric] = MetricComparison(
+    for metric in ("total_orders", "paid_orders", "paid_amount"):  # 遍历三个关键指标
+        current_value = current[metric]  # 获取当前值
+        previous_value = previous[metric]  # 获取前值
+        comparisons[metric] = MetricComparison(  # 创建指标比较对象
             current=current_value,
             previous=previous_value,
-            absolute_change=current_value - previous_value,
-            percent_change=percent_change(current_value, previous_value),
+            absolute_change=current_value - previous_value,  # 计算绝对变化
+            percent_change=percent_change(current_value, previous_value),  # 计算百分比变化
         )
+    # 返回日报对象，包含日期、各项指标和比较数据
     return DailyReport(
         date=report_date,
-        total_orders=int(current["total_orders"]),
-        paid_orders=int(current["paid_orders"]),
-        paid_amount=Decimal(current["paid_amount"]),
-        status_counts=current["status_counts"],
-        comparison=comparisons,
+        total_orders=int(current["total_orders"]),  # 总订单数，转为整数
+        paid_orders=int(current["paid_orders"]),  # 已支付订单数，转为整数
+        paid_amount=Decimal(current["paid_amount"]),  # 已支付金额，转为Decimal
+        status_counts=current["status_counts"],  # 订单状态计数
+        comparison=comparisons,  # 指标比较数据
     )
 
 
